@@ -8,31 +8,29 @@ const app = express();
 const PORT = 3001;
 const cache = new NodeCache({ stdTTL: 3600 }); // TTL de 3600 segundos (1 hora)
 app.use(cors()); // Habilitar CORS
-app.use(express.json());
+app.use(express.json()); // Middleware para parsear JSON en las solicitudes
 
-// Middleware para actualizar el caché en cada conexión
+// Middleware para actualizar el caché en cada conexión (lógica adicional puede ser añadida aquí)
 app.use((req, res, next) => {
-    // Aquí puedes definir la lógica para actualizar el caché
-    // Por ejemplo, si quieres limpiar el caché o hacer otra lógica
     next(); // Llama al siguiente middleware o ruta
 });
 
 // Endpoint para obtener las canciones de una banda
 app.get('/search_tracks', async (req, res) => {
-    const bandName = req.query.name;
+    const bandName = req.query.name; // Obtiene el nombre de la banda de los parámetros de consulta
 
     // Revisa si los datos están en caché
-    const cacheKey = `search_${bandName}`;
+    const cacheKey = `search_${bandName}`; // Clave única para almacenar los resultados en caché
     const cachedData = cache.get(cacheKey);
     if (cachedData) {
         return res.json(cachedData); // Retorna datos en caché si existen
     }
 
-    // Si no hay datos en caché, realizar la consulta a la API
+    // Si no hay datos en caché, realizar la consulta a la API de iTunes
     const url = `https://itunes.apple.com/search?term=${encodeURIComponent(bandName)}`;
 
     try {
-        const response = await axios.get(url);
+        const response = await axios.get(url); // Realiza la solicitud GET
         const results = response.data.results;
 
         // Filtra solo las canciones del artista exacto y el tipo "track"
@@ -76,22 +74,21 @@ app.get('/search_tracks', async (req, res) => {
         res.json(responseData);
 
     } catch (error) {
-        console.error("Error al consultar la API de iTunes:", error);
-        res.status(500).json({ error: "Error al consultar la API de iTunes" });
+        console.error("Error al consultar la API de iTunes:", error); // Manejo del error
+        res.status(500).json({ error: "Error al consultar la API de iTunes" }); // Respuesta en caso de error
     }
 });
-
 
 // Estructura temporal para almacenar las canciones favoritas
 const favoritos = [];
 
 // Endpoint para agregar o quitar una canción de favoritos
 app.post('/favoritos', (req, res) => {
-    const { nombre_banda, cancion_id, usuario, ranking } = req.body;
+    const { nombre_banda, cancion_id, usuario, ranking } = req.body; // Desestructura los datos del cuerpo de la solicitud
 
     // Validación de la entrada
     if (!nombre_banda || !cancion_id || !usuario || !ranking) {
-        return res.status(400).json({ error: "Datos incompletos en la solicitud" });
+        return res.status(400).json({ error: "Datos incompletos en la solicitud" }); // Respuesta de error por datos incompletos
     }
 
     // Verifica si la canción ya está en favoritos
@@ -105,7 +102,7 @@ app.post('/favoritos', (req, res) => {
 
     // Agrega la canción a la lista de favoritos
     favoritos.push({ nombre_banda, cancion_id, usuario, ranking });
-    res.status(201).json({ message: "Canción marcada como favorita" });
+    res.status(201).json({ message: "Canción marcada como favorita" }); // Respuesta de éxito
 });
 
 // Endpoint para obtener las canciones favoritas
@@ -116,5 +113,5 @@ app.get('/favoritos', (req, res) => {
 
 // Iniciar el servidor
 app.listen(PORT, () => {
-    console.log(`Servidor corriendo en http://localhost:${PORT}`);
+    console.log(`Servidor corriendo en http://localhost:${PORT}`); // Mensaje en consola al iniciar el servidor
 });
