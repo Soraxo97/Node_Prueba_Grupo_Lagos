@@ -19,6 +19,10 @@ app.use((req, res, next) => {
 app.get('/search_tracks', async (req, res) => {
     const bandName = req.query.name; // Obtiene el nombre de la banda de los parámetros de consulta
 
+    if (!bandName) {
+        return res.status(400).json({ error: "El nombre de la banda es requerido." }); // Manejo de errores si no se proporciona nombre de banda
+    }
+
     // Revisa si los datos están en caché
     const cacheKey = `search_${bandName}`; // Clave única para almacenar los resultados en caché
     const cachedData = cache.get(cacheKey);
@@ -27,7 +31,7 @@ app.get('/search_tracks', async (req, res) => {
     }
 
     // Si no hay datos en caché, realizar la consulta a la API de iTunes
-    const url = `https://itunes.apple.com/search?term=${encodeURIComponent(bandName)}`;
+    const url = `https://itunes.apple.com/search?term=${encodeURIComponent(bandName)}&limit=25`;
 
     try {
         const response = await axios.get(url); // Realiza la solicitud GET
@@ -54,17 +58,17 @@ app.get('/search_tracks', async (req, res) => {
             preview_url: song.previewUrl,
             fecha_lanzamiento: song.releaseDate,
             precio: {
-                valor: song.trackPrice,
+                valor: song.trackPrice || "N/A", // Asegúrate de manejar casos sin precio
                 moneda: song.currency
             }
         }));
 
         // Estructura de la respuesta
         const responseData = {
-            total_albumes: albums.size,
-            total_canciones: formattedSongs.length,
-            albumes: Array.from(albums),
-            canciones: formattedSongs
+            total_albumes: albums.size, // Total de álbumes únicos
+            total_canciones: formattedSongs.length, // Total de canciones
+            albumes: Array.from(albums), // Lista de nombres de álbumes únicos
+            canciones: formattedSongs // Lista de canciones formateadas
         };
 
         // Guarda en caché la respuesta
@@ -91,18 +95,34 @@ app.post('/favoritos', (req, res) => {
         return res.status(400).json({ error: "Datos incompletos en la solicitud" }); // Respuesta de error por datos incompletos
     }
 
+    // Imprimir los datos recibidos en la consola
+    console.log("Datos recibidos:", {
+        nombre_banda,
+        cancion_id,
+        usuario,
+        ranking
+    });
+
     // Verifica si la canción ya está en favoritos
     const existingFavoriteIndex = favoritos.findIndex(fav => fav.cancion_id === cancion_id && fav.nombre_banda.toLowerCase() === nombre_banda.toLowerCase());
 
     if (existingFavoriteIndex >= 0) {
         // Si la canción ya está en favoritos, la eliminamos
+        const removedSong = favoritos[existingFavoriteIndex]; // Guarda la canción eliminada
         favoritos.splice(existingFavoriteIndex, 1);
-        return res.status(200).json({ message: "Canción desmarcada como favorita" });
+        return res.status(200).json({ 
+            message: "Canción desmarcada como favorita",
+            ...removedSong // Incluye la información de la canción eliminada en la respuesta
+        });
     }
 
     // Agrega la canción a la lista de favoritos
-    favoritos.push({ nombre_banda, cancion_id, usuario, ranking });
-    res.status(201).json({ message: "Canción marcada como favorita" }); // Respuesta de éxito
+    const newFavorite = { nombre_banda, cancion_id, usuario, ranking };
+    favoritos.push(newFavorite);
+    res.status(201).json({ 
+        message: "Canción marcada como favorita", 
+        favorite: newFavorite // Devuelve el objeto que se acaba de añadir
+    }); // Respuesta de éxito con detalles de la canción
 });
 
 // Endpoint para obtener las canciones favoritas
